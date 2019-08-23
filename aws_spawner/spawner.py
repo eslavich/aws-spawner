@@ -38,6 +38,10 @@ class AwsSpawner(Spawner):
 #     value = obj._trait_values[self.name]
 # KeyError: 'oauth_client_id'
 
+        # TODO: Pass environment variables to the instance from:
+        # https://github.com/jupyterhub/jupyterhub/blob/master/jupyterhub/spawner.py#L669
+        # Then need some way to pass this stuff to the instance...
+
         instance = self.ec2.create_instances(
             MinCount=1,
             MaxCount=1,
