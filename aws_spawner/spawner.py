@@ -49,7 +49,7 @@ class AwsSpawner(Spawner):
     ).tag(config=True)
 
     availability_zone = Unicode(
-        help=-"""
+        help="""
         Availability zone of spawned instances and volumes
         """
     ).tag(config=True)
