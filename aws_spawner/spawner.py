@@ -65,7 +65,6 @@ class AwsSpawner(Spawner):
         # TODO: Check "Status Checks" instead of just Instance State
 
         self.ip_address = instance.network_interfaces[0].private_ip_addresses[0]["PrivateIpAddress"]
-        #self.ip_address = instance.public_ip_address
 
         LOGGER.info("Returning IP address %s, port %s", self.ip_address, self.port)
 
@@ -143,6 +142,9 @@ class AwsSpawner(Spawner):
 
         user_data = {}
         user_data["env"] = env
+        user_data["username"] = self.user.name
+
+        LOGGER.debug(self.user)
 
         return json.dumps(user_data)
 
