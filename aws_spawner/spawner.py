@@ -77,7 +77,7 @@ class AwsSpawner(Spawner):
             create_instances_kwargs["Placement"] = {"AvailabilityZone": self.availability_zone}
 
         self.log.debug("Creating instance with %s", create_instance_kwargs)
-        instance = self.ec2.create_instances(**create_instances_kwargs)
+        instance = self.ec2.create_instances(**create_instances_kwargs)[0]
         self.instance_id = instance.id
         self.log.debug("Created instance_id %s", self.instance_id)
 
@@ -123,22 +123,33 @@ class AwsSpawner(Spawner):
         self.log.debug("Entered stop")
 
         if self.instance_id is None:
-            self.log.debug("No instance_id, returning from stop")
-            return
+            self.log.debug("No instance_id")
+        else:
+            self.log.debug("Terminating instance_id %s", self.instance_id)
+            instance = self._get_instance(self.instance_id)
+            if not instance:
+                self.log.warning("Missing instance %s", self.instance_id)
+            else:
+                instance.terminate()
 
-        self.log.debug("Terminating instance_id %s", self.instance_id)
-        instance = self._get_instance(self.instance_id)
-        if not instance:
-            self.log.warning("Missing instance %s", self.instance_id)
-        instance.terminate()
+        if self.volume_id is None:
+            self.log.debug("No volume_id")
+        else:
+            self.log.debug("Deleting volume %s", self.volume_id)
+            volume = self._get_volume(self.volume_id)
+            if not volume:
+                self.log.warning("Missing volume %s", self.volume_id)
+            else:
+                while volume.state != "available":
+                    self.log.debug("Volume state is %s", volume.state)
+                    await asyncio.sleep(1)
+                    volume.reload()
 
-        while instance.state["Code"] != 48:
-            self.log.debug("Code is %s", instance.state["Code"])
-            await asyncio.sleep(1)
-            instance.reload()
+                volume.delete()
 
         self.instance_id = None
         self.ip_address = None
+        self.volume_id = None
 
         self.log.debug("Returning from stop")
 
@@ -149,7 +160,8 @@ class AwsSpawner(Spawner):
 
         state.update({
             "instance_id": self.instance_id,
-            "ip_address": self.ip_address
+            "ip_address": self.ip_address,
+            "volume_id": self.volume_id,
         })
 
         self.log.debug("Returning state: %s", state)
@@ -163,6 +175,7 @@ class AwsSpawner(Spawner):
 
         self.instance_id = state.get("instance_id")
         self.ip_address = state.get("ip_address")
+        self.volume_id = state.get("volume_id")
 
     def clear_state(self):
         self.log.debug("Clearing state")
@@ -171,6 +184,7 @@ class AwsSpawner(Spawner):
 
         self.instance_id = None
         self.ip_address = None
+        self.volume_id = None
 
     def options_from_form(self, formdata):
         pass
@@ -193,6 +207,9 @@ class AwsSpawner(Spawner):
             return instance
 
         return None
+
+    def _get_volume(self, volume_id):
+        return self.ec2.Volume(volume_id)
 
     @default('env_keep')
     def _env_keep_default(self):
