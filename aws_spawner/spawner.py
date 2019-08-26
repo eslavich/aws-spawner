@@ -118,11 +118,6 @@ class AwsSpawner(Spawner):
         attach_response = instance.attach_volume(VolumeId=volume.id, Device=self.home_volume_device)
         self.log.debug("Volume attached with device %s", attach_response["Device"])
 
-        while volume.attachments[0]["State"] != "attached":
-            self.log.debug("Volume attachment state is %s", volume.attachments[0]["State"])
-            await asyncio.sleep(1)
-            volume.reload()
-
         self.log.debug("Returning IP address %s, port %s", self.ip_address, self.port)
 
         return self.ip_address, self.port
