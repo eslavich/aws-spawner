@@ -35,6 +35,7 @@ class AwsSpawner(Spawner):
     ).tag(config=True)
 
     async def start(self):
+        LOGGER.info("Entered start")
         # TODO: Devise tag scheme with username
 
         # TODO:
@@ -52,6 +53,8 @@ class AwsSpawner(Spawner):
 
         user_data = self.get_user_data()
 
+        LOGGER.info("User data: %s", user_data)
+
         instance = self.ec2.create_instances(
             MinCount=1,
             MaxCount=1,
@@ -61,10 +64,13 @@ class AwsSpawner(Spawner):
 
         self.instance_id = instance.id
 
+        LOGGER.info("Created instance_id %s", self.instance_id)
+
         # TODO: This needs to be smarter, check for unexpected codes, etc
         # https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceState.html
         while instance.state["Code"] != 16:
-            await asyncio.sleep(15)
+            LOGGER.info("Code is %s", instance.state["Code"])
+            await asyncio.sleep(1)
             instance.reload()
 
         # TODO: Check "Status Checks" instead of just Instance State
@@ -72,32 +78,46 @@ class AwsSpawner(Spawner):
         # self.ip_address = instance.network_interfaces[0].private_ip_addresses[0]["PrivateIpAddress"]
         self.ip_address = instance.public_ip_address
 
+        LOGGER.info("Returning IP address %s, port %s", self.ip_address, self.port)
+
         return self.ip_address, self.port
 
     async def poll(self):
+        LOGGER.info("Entered poll")
         # TODO: Return status 0 if not started yet
 
         if self.instance_id is not None:
+            LOGGER.info("Returning None")
             return None
         else:
+            LOGGER.info("Returning 0")
             return 0
 
     async def stop(self, now=False):
+        LOGGER.info("Entered stop")
+
         if self.instance_id is None:
+            LOGGER.info("No instance_id, returning from stop")
             return
 
+        LOGGER.info("Terminating instance_id %s", self.instance_id)
         # TODO: Does the record for the instance disappear if it's been terminated for a while?
         instance = self._get_instance(self.instance_id)
         instance.terminate()
 
         while instance.state["Code"] != 48:
-            await asyncio.sleep(15)
+            LOGGER.info("Code is %s", instance.state["Code"])
+            await asyncio.sleep(1)
             instance.reload()
 
         self.instance_id = None
         self.ip_address = None
 
+        LOGGER.info("Returning from stop")
+
     def get_state(self):
+        LOGGER.info("Getting state")
+
         state = super().get_state()
 
         state.update({
@@ -105,15 +125,21 @@ class AwsSpawner(Spawner):
             "ip_address": self.ip_address
         })
 
+        LOGGER.info("Returning state: %s", state)
+
         return state
 
     def load_state(self, state):
+        LOGGER.info("Loading state: %s", state)
+
         super().load_state(state)
 
         self.instance_id = state.get("instance_id")
         self.ip_address = state.get("ip_address")
 
     def clear_state(self):
+        LOGGER.info("Clearing state")
+
         super().clear_state()
 
         # TODO: subclasses should call super
