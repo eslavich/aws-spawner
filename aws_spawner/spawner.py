@@ -48,6 +48,13 @@ class AwsSpawner(Spawner):
         """,
     ).tag(config=True)
 
+    home_volume_device = Unicode(
+        "/dev/sdf",
+        help="""
+        The device name of the volume containing the user's home directory.
+        """,
+    ).tag(config=True)
+
     availability_zone = Unicode(
         help="""
         Availability zone of spawned instances and volumes
@@ -91,7 +98,8 @@ class AwsSpawner(Spawner):
         # TODO: SnapshotId would go here
         create_volume_kwargs = {
             "AvailabilityZone": instance.placement["AvailabilityZone"],
-            "Size": int(self.home_volume_size / (1024 * 1024 * 1024))
+            "Size": int(self.home_volume_size / (1024 * 1024 * 1024)),
+            "Device": self.home_volume_device,
         }
         self.log.debug("Creating volume with %s", create_volume_kwargs)
         volume = self.ec2.create_volume(**create_volume_kwargs)
