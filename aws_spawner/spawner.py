@@ -86,14 +86,8 @@ class AwsSpawner(Spawner):
         self.log.debug("Creating instance with %s", create_instances_kwargs)
         instance = self.ec2.create_instances(**create_instances_kwargs)[0]
         self.instance_id = instance.id
+        self.ip_address = instance.network_interfaces[0].private_ip_addresses[0]["PrivateIpAddress"]
         self.log.debug("Created instance_id %s", self.instance_id)
-
-        # TODO: This needs to be smarter, check for unexpected codes, etc
-        # https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceState.html
-        while instance.state["Code"] != 16:
-            self.log.debug("Code is %s", instance.state["Code"])
-            await asyncio.sleep(1)
-            instance.reload()
 
         # TODO: SnapshotId would go here
         create_volume_kwargs = {
@@ -102,15 +96,32 @@ class AwsSpawner(Spawner):
         }
         self.log.debug("Creating volume with %s", create_volume_kwargs)
         volume = self.ec2.create_volume(**create_volume_kwargs)
-        self.log.debug("Created volume id %s", volume.id)
         self.volume_id = volume.id
+        self.log.debug("Created volume id %s", volume.id)
+
+        # TODO: This needs to be smarter, check for unexpected codes, etc
+        # https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceState.html
+        while instance.state["Code"] != 16:
+            self.log.debug("Code is %s", instance.state["Code"])
+            await asyncio.sleep(1)
+            instance.reload()
+
+        # TODO: Check "Status Checks" instead of just Instance State
+
+        volume.reload()
+        while volume.state != "available":
+            self.log.debug("Volume state is %s", volume.state)
+            await asyncio.sleep(1)
+            volume.reload()
+
         self.log.debug("Attaching volume")
         attach_response = instance.attach_volume(VolumeId=volume.id, Device=self.home_volume_device)
         self.log.debug("Volume attached with device %s", attach_response["Device"])
 
-        # TODO: Check "Status Checks" instead of just Instance State
-
-        self.ip_address = instance.network_interfaces[0].private_ip_addresses[0]["PrivateIpAddress"]
+        while volume.attachments[0]["State"] != "attached":
+            self.log.debug("Volume attachment state is %s", volume.attachments[0]["State"])
+            await asyncio.sleep(1)
+            volume.reload()
 
         self.log.debug("Returning IP address %s, port %s", self.ip_address, self.port)
 
