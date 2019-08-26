@@ -35,14 +35,15 @@ class AwsSpawner(Spawner):
     ).tag(config=True)
 
     async def start(self):
-        LOGGER.info("Entered start")
+        LOGGER.debug("Entered start")
         # TODO: Devise tag scheme with username
 
-        LOGGER.info("Looking for volume")
+        LOGGER.debug("Looking for volume")
 
         user_data = self.get_user_data()
 
-        LOGGER.info("User data: %s", user_data)
+        LOGGER.debug("User data: %s", user_data)
+        LOGGER.debug("User: %s", self.user)
 
         instance = self.ec2.create_instances(
             MinCount=1,
@@ -53,12 +54,12 @@ class AwsSpawner(Spawner):
 
         self.instance_id = instance.id
 
-        LOGGER.info("Created instance_id %s", self.instance_id)
+        LOGGER.debug("Created instance_id %s", self.instance_id)
 
         # TODO: This needs to be smarter, check for unexpected codes, etc
         # https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceState.html
         while instance.state["Code"] != 16:
-            LOGGER.info("Code is %s", instance.state["Code"])
+            LOGGER.debug("Code is %s", instance.state["Code"])
             await asyncio.sleep(1)
             instance.reload()
 
@@ -66,7 +67,7 @@ class AwsSpawner(Spawner):
 
         self.ip_address = instance.network_interfaces[0].private_ip_addresses[0]["PrivateIpAddress"]
 
-        LOGGER.info("Returning IP address %s, port %s", self.ip_address, self.port)
+        LOGGER.debug("Returning IP address %s, port %s", self.ip_address, self.port)
 
         return self.ip_address, self.port
 
@@ -143,8 +144,6 @@ class AwsSpawner(Spawner):
         user_data = {}
         user_data["env"] = env
         user_data["username"] = self.user.name
-
-        LOGGER.debug(self.user)
 
         return json.dumps(user_data)
 
