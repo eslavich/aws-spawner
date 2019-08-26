@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import json
 
 from jupyterhub.spawner import Spawner
 from traitlets import (
@@ -26,6 +27,13 @@ class AwsSpawner(Spawner):
         self.instance_id = None
         self.ip_address = None
 
+    launch_template_id = Unicode(
+        # TODO: Make the help more helpful
+        help="""
+        AWS LaunchTemplateId
+        """
+    ).tag(config=True)
+
     async def start(self):
         # TODO: Devise tag scheme with username
 
@@ -42,10 +50,13 @@ class AwsSpawner(Spawner):
         # https://github.com/jupyterhub/jupyterhub/blob/master/jupyterhub/spawner.py#L669
         # Then need some way to pass this stuff to the instance...
 
+        user_data = self.get_user_data()
+
         instance = self.ec2.create_instances(
             MinCount=1,
             MaxCount=1,
-            LaunchTemplate={"LaunchTemplateId": "lt-07df94397c1146b8b"}
+            LaunchTemplate={"LaunchTemplateId": self.launch_template_id},
+            UserData=user_data
         )[0]
 
         self.instance_id = instance.id
@@ -87,16 +98,24 @@ class AwsSpawner(Spawner):
         self.ip_address = None
 
     def get_state(self):
-        return {
+        state = super().get_state()
+
+        state.update({
             "instance_id": self.instance_id,
             "ip_address": self.ip_address
-        }
+        })
+
+        return state
 
     def load_state(self, state):
+        super().load_state(state)
+
         self.instance_id = state.get("instance_id")
         self.ip_address = state.get("ip_address")
 
     def clear_state(self):
+        super().clear_state()
+
         # TODO: subclasses should call super
 
         self.instance_id = None
@@ -105,14 +124,25 @@ class AwsSpawner(Spawner):
     def options_from_form(self, formdata):
         pass
 
+    def get_user_data(self):
+        env = self.get_env()
+
+        user_data = {}
+        user_data["env"] = env
+
+        return json.dumps(user_data)
+
     @default("options_form")
     def _options_form_default(self):
         return "<h1>HEY I'M SO EXCITED TO BE HERE</h1>"
 
     def _get_instance(self, instance_id):
-        try:
-            # TODO: 'ec2.instancesCollection' object is not an iterator
-            return next(self.ec2.instances.filter(Filters=[{"Name": "instance-id", "Values": ["instance_id"]}]))
-        except StopIteration:
-            return None
+        for instance in self.ec2.instances.filter(Filters=[{"Name": "instance-id", "Values": [instance_id]}]).limit(1):
+            return instance
 
+        return None
+
+    @default('env_keep')
+    def _env_keep_default(self):
+        # None of the hub instance's environment variables are relevant to the user's instance
+        return []
