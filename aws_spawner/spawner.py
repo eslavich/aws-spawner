@@ -91,6 +91,7 @@ class AwsSpawner(Spawner):
         # TODO: SnapshotId would go here
         create_volume_kwargs = {
             "AvailabilityZone": instance.placement["AvailabilityZone"],
+            "Size": int(self.home_volume_size / (1024 * 1024 * 1024))
         }
         self.log.debug("Creating volume with %s", create_volume_kwargs)
         volume = self.ec2.create_volume(**create_volume_kwargs)
