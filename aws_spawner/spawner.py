@@ -99,14 +99,13 @@ class AwsSpawner(Spawner):
         create_volume_kwargs = {
             "AvailabilityZone": instance.placement["AvailabilityZone"],
             "Size": int(self.home_volume_size / (1024 * 1024 * 1024)),
-            "Device": self.home_volume_device,
         }
         self.log.debug("Creating volume with %s", create_volume_kwargs)
         volume = self.ec2.create_volume(**create_volume_kwargs)
         self.log.debug("Created volume id %s", volume.id)
         self.volume_id = volume.id
         self.log.debug("Attaching volume")
-        attach_response = instance.attach_volume(VolumeId=volume.id)
+        attach_response = instance.attach_volume(VolumeId=volume.id, Device=self.home_volume_device)
         self.log.debug("Volume attached with device %s", attach_response["Device"])
 
         # TODO: Check "Status Checks" instead of just Instance State
