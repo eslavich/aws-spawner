@@ -76,7 +76,7 @@ class AwsSpawner(Spawner):
         if self.availability_zone:
             create_instances_kwargs["Placement"] = {"AvailabilityZone": self.availability_zone}
 
-        self.log.debug("Creating instance with %s", create_instance_kwargs)
+        self.log.debug("Creating instance with %s", create_instances_kwargs)
         instance = self.ec2.create_instances(**create_instances_kwargs)[0]
         self.instance_id = instance.id
         self.log.debug("Created instance_id %s", self.instance_id)
