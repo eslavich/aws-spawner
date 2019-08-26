@@ -38,18 +38,7 @@ class AwsSpawner(Spawner):
         LOGGER.info("Entered start")
         # TODO: Devise tag scheme with username
 
-        # TODO:
-#         $ JUPYTERHUB_API_TOKEN=1 jupyter labhub
-# [W 2019-08-23 22:18:49.662 SingleUserLabApp configurable:168] Config option `open_browser` not recognized by `SingleUserLabApp`.  Did you mean `browser`?
-# [W 2019-08-23 22:18:49.663 SingleUserLabApp configurable:168] Config option `token` not recognized by `SingleUserLabApp`.
-# Traceback (most recent call last):
-#   File "/home/ec2-user/miniconda3/lib/python3.7/site-packages/traitlets/traitlets.py", line 528, in get
-#     value = obj._trait_values[self.name]
-# KeyError: 'oauth_client_id'
-
-        # TODO: Pass environment variables to the instance from:
-        # https://github.com/jupyterhub/jupyterhub/blob/master/jupyterhub/spawner.py#L669
-        # Then need some way to pass this stuff to the instance...
+        LOGGER.info("Looking for volume")
 
         user_data = self.get_user_data()
 
@@ -83,40 +72,41 @@ class AwsSpawner(Spawner):
         return self.ip_address, self.port
 
     async def poll(self):
-        LOGGER.info("Entered poll")
+        LOGGER.debug("Entered poll")
         # TODO: Return status 0 if not started yet
 
         if self.instance_id is not None:
-            LOGGER.info("Returning None")
+            LOGGER.debug("Returning None")
             return None
         else:
-            LOGGER.info("Returning 0")
+            LOGGER.debug("Returning 0")
             return 0
 
     async def stop(self, now=False):
-        LOGGER.info("Entered stop")
+        LOGGER.debug("Entered stop")
 
         if self.instance_id is None:
-            LOGGER.info("No instance_id, returning from stop")
+            LOGGER.debug("No instance_id, returning from stop")
             return
 
-        LOGGER.info("Terminating instance_id %s", self.instance_id)
-        # TODO: Does the record for the instance disappear if it's been terminated for a while?
+        LOGGER.debug("Terminating instance_id %s", self.instance_id)
         instance = self._get_instance(self.instance_id)
+        if not instance:
+            LOGGER.warning("Missing instance %s", self.instance_id)
         instance.terminate()
 
         while instance.state["Code"] != 48:
-            LOGGER.info("Code is %s", instance.state["Code"])
+            LOGGER.debug("Code is %s", instance.state["Code"])
             await asyncio.sleep(1)
             instance.reload()
 
         self.instance_id = None
         self.ip_address = None
 
-        LOGGER.info("Returning from stop")
+        LOGGER.debug("Returning from stop")
 
     def get_state(self):
-        LOGGER.info("Getting state")
+        LOGGER.debug("Getting state")
 
         state = super().get_state()
 
@@ -125,12 +115,12 @@ class AwsSpawner(Spawner):
             "ip_address": self.ip_address
         })
 
-        LOGGER.info("Returning state: %s", state)
+        LOGGER.debug("Returning state: %s", state)
 
         return state
 
     def load_state(self, state):
-        LOGGER.info("Loading state: %s", state)
+        LOGGER.debug("Loading state: %s", state)
 
         super().load_state(state)
 
@@ -138,11 +128,9 @@ class AwsSpawner(Spawner):
         self.ip_address = state.get("ip_address")
 
     def clear_state(self):
-        LOGGER.info("Clearing state")
+        LOGGER.debug("Clearing state")
 
         super().clear_state()
-
-        # TODO: subclasses should call super
 
         self.instance_id = None
         self.ip_address = None
