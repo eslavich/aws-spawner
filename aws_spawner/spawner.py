@@ -17,7 +17,6 @@ from traitlets import (
 import boto3
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
 
 class AwsSpawner(Spawner):
     def __init__(self, *args, **kwargs):
