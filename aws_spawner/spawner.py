@@ -27,7 +27,6 @@ class AwsSpawner(Spawner):
         self.ip_address = None
 
     launch_template_id = Unicode(
-        # TODO: Make the help more helpful
         help="""
         AWS LaunchTemplateId that defines the instance created.
         """
@@ -41,10 +40,14 @@ class AwsSpawner(Spawner):
     ).tag(config=True)
 
     home_volume_size = ByteSpecification(
-        # TODO: None, or no argument here?
-        None,
         help="""
         Size of the EBS volume that will be created for the user's home directory.
+        """,
+    ).tag(config=True)
+
+    home_snapshot_id = Unicode(
+        help="""
+        Snapshot used to create the user's home directory.
         """,
     ).tag(config=True)
 
@@ -89,11 +92,15 @@ class AwsSpawner(Spawner):
         self.ip_address = instance.network_interfaces[0].private_ip_addresses[0]["PrivateIpAddress"]
         self.log.debug("Created instance_id %s", self.instance_id)
 
-        # TODO: SnapshotId would go here
         create_volume_kwargs = {
             "AvailabilityZone": instance.placement["AvailabilityZone"],
-            "Size": int(self.home_volume_size / (1024 * 1024 * 1024)),
         }
+
+        if self.home_volume_size:
+            create_volume_kwargs["Size"] = int(self.home_volume_size / (1024 * 1024 * 1024))
+        if self.home_snapshot_id:
+            create_volume_kwargs["SnapshotId"] = self.home_snapshot_id
+
         self.log.debug("Creating volume with %s", create_volume_kwargs)
         volume = self.ec2.create_volume(**create_volume_kwargs)
         self.volume_id = volume.id
