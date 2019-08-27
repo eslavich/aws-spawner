@@ -229,7 +229,7 @@ class AwsSpawner(Spawner):
 
     @default("options_form")
     def _options_form_default(self):
-        return "<h1>HEY I'M SO EXCITED TO BE HERE</h1>"
+        return "<h1>aws-spawner demo</h1>"
 
     def _get_instance(self, instance_id):
         for instance in self.ec2.instances.filter(Filters=[{"Name": "instance-id", "Values": [instance_id]}]).limit(1):
