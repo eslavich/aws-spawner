@@ -108,8 +108,8 @@ class AwsSpawner(Spawner):
                 "SnapshotId": snapshot_id
             }
             self.log.debug("Creating %s volume with %s", volume_type, create_volume_kwargs)
-            volume = self.ec2.create_volume(**create_volume_kwargs))
-            volumes_by_env[volume_type] = volume
+            volume = self.ec2.create_volume(**create_volume_kwargs)
+            volumes_by_type[volume_type] = volume
             self.volume_ids_by_type[volume_type] = volume.id
             self.log.debug("Created %s volume id %s", volume_type, volume.id)
 
