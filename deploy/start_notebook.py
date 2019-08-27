@@ -15,22 +15,22 @@ def get_user_data():
 def get_home_path(username):
     return f"/home/{username}"
 
-def home_directory_exists(username):
-    return Path(get_home_path(username)).exists()
+def is_mounted(device):
+    for line in subprocess.check_output("mount").decode("utf-8").split("\n"):
+        if line.strip().startswith(device):
+            return True
+    return False
 
 def mount_home_directory(username):
     home_path = get_home_path(username)
     # TODO: Can we reboot the instance without losing these mounts?
-    subprocess.check_call(["sudo", "mkdir", home_path])
+    subprocess.check_call(["sudo", "mkdir", "-p", home_path])
     subprocess.check_call(["sudo", "mount", HOME_DEVICE, home_path])
     subprocess.check_call(["sudo", "chmod", "700", home_path])
     subprocess.check_call(["sudo", "chown", "--recursive", f"{username}:notebook-users", home_path])
 
-def env_directory_exists():
-    return Path(ENV_PATH).exists()
-
-def mount_env_directory(username):
-    subprocess.check_call(["sudo", "mkdir", ENV_PATH])
+def mount_env_directory():
+    subprocess.check_call(["sudo", "mkdir", "-p", ENV_PATH])
     subprocess.check_call(["sudo", "mount", ENV_DEVICE, ENV_PATH])
     subprocess.check_call(["sudo", "chmod", "775", ENV_PATH])
 
@@ -51,8 +51,11 @@ username = user_data["username"]
 if not user_exists(username):
     create_user(username)
 
-if not home_directory_exists(username):
+if not is_mounted(HOME_DEVICE):
     mount_home_directory(username)
+
+if not is_mounted(ENV_DEVICE):
+    mount_env_directory()
 
 env = []
 if "env" in user_data:

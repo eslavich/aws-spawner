@@ -165,7 +165,7 @@ class AwsSpawner(Spawner):
 
         for volume_type, volume_id in self.volume_ids_by_type.items():
             self.log.debug("Deleting %s volume %s", volume_type, volume_id)
-            volume = self._get_volume(self.volume_id)
+            volume = self._get_volume(volume_id)
             if not volume:
                 self.log.warning("Missing %s volume %s", volume_type, volume_id)
             else:
