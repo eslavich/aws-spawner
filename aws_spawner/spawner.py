@@ -204,7 +204,7 @@ class AwsSpawner(Spawner):
 
         self.instance_id = state.get("instance_id")
         self.ip_address = state.get("ip_address")
-        self.volume_ids_by_type = state.get("volume_ids_by_type")
+        self.volume_ids_by_type = state.get("volume_ids_by_type", {})
 
     def clear_state(self):
         self.log.debug("Clearing state")
