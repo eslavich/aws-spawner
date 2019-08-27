@@ -25,6 +25,7 @@ class AwsSpawner(Spawner):
         self.ec2 = boto3.resource("ec2")
         self.instance_id = None
         self.ip_address = None
+        self.volume_ids_by_type = {}
 
     launch_template_id = Unicode(
         help="""
@@ -39,13 +40,7 @@ class AwsSpawner(Spawner):
         """
     ).tag(config=True)
 
-    home_volume_size = ByteSpecification(
-        help="""
-        Size of the EBS volume that will be created for the user's home directory.
-        """,
-    ).tag(config=True)
-
-    home_snapshot_id = Unicode(
+    home_volume_snapshot_id = Unicode(
         help="""
         Snapshot used to create the user's home directory.
         """,
@@ -55,6 +50,19 @@ class AwsSpawner(Spawner):
         "/dev/sdf",
         help="""
         The device name of the volume containing the user's home directory.
+        """,
+    ).tag(config=True)
+
+    env_volume_snapshot_id = Unicode(
+        help="""
+        Snapshot used to create the user's conda directory.
+        """,
+    ).tag(config=True)
+
+    env_volume_device = Unicode(
+        "/dev/sdg",
+        help="""
+        The device name of the volume containing the user's conda directory.
         """,
     ).tag(config=True)
 
@@ -92,19 +100,18 @@ class AwsSpawner(Spawner):
         self.ip_address = instance.network_interfaces[0].private_ip_addresses[0]["PrivateIpAddress"]
         self.log.debug("Created instance_id %s", self.instance_id)
 
-        create_volume_kwargs = {
-            "AvailabilityZone": instance.placement["AvailabilityZone"],
-        }
-
-        if self.home_volume_size:
-            create_volume_kwargs["Size"] = int(self.home_volume_size / (1024 * 1024 * 1024))
-        if self.home_snapshot_id:
-            create_volume_kwargs["SnapshotId"] = self.home_snapshot_id
-
-        self.log.debug("Creating volume with %s", create_volume_kwargs)
-        volume = self.ec2.create_volume(**create_volume_kwargs)
-        self.volume_id = volume.id
-        self.log.debug("Created volume id %s", volume.id)
+        volumes_by_type = {}
+        for volume_type in ["env", "home"]:
+            snapshot_id = getattr(self, f"{volume_type}_volume_snapshot_id")
+            create_volume_kwargs = {
+                "AvailabilityZone": instance.placement["AvailabilityZone"],
+                "SnapshotId": snapshot_id
+            }
+            self.log.debug("Creating %s volume with %s", volume_type, create_volume_kwargs)
+            volume = self.ec2.create_volume(**create_volume_kwargs))
+            volumes_by_env[volume_type] = volume
+            self.volume_ids_by_type[volume_type] = volume.id
+            self.log.debug("Created %s volume id %s", volume_type, volume.id)
 
         # TODO: This needs to be smarter, check for unexpected codes, etc
         # https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceState.html
@@ -115,15 +122,18 @@ class AwsSpawner(Spawner):
 
         # TODO: Check "Status Checks" instead of just Instance State
 
-        volume.reload()
-        while volume.state != "available":
-            self.log.debug("Volume state is %s", volume.state)
-            await asyncio.sleep(1)
+        for volume_type, volume in volumes_by_type.items():
             volume.reload()
+            while volume.state != "available":
+                self.log.debug("The %s volume state is %s", volume_type, volume.state)
+                await asyncio.sleep(1)
+                volume.reload()
 
-        self.log.debug("Attaching volume")
-        attach_response = instance.attach_volume(VolumeId=volume.id, Device=self.home_volume_device)
-        self.log.debug("Volume attached with device %s", attach_response["Device"])
+        self.log.debug("Attaching volumes")
+        for volume_type, volume in volumes_by_type.items():
+            device = getattr(self, f"{volume_type}_volume_device")
+            attach_response = instance.attach_volume(VolumeId=volume.id, Device=device)
+            self.log.debug("The %s volume attached with device %s", volume_type, attach_response["Device"])
 
         self.log.debug("Returning IP address %s, port %s", self.ip_address, self.port)
 
@@ -153,16 +163,14 @@ class AwsSpawner(Spawner):
             else:
                 instance.terminate()
 
-        if self.volume_id is None:
-            self.log.debug("No volume_id")
-        else:
-            self.log.debug("Deleting volume %s", self.volume_id)
+        for volume_type, volume_id in self.volume_ids_by_type.items():
+            self.log.debug("Deleting %s volume %s", volume_type, volume_id)
             volume = self._get_volume(self.volume_id)
             if not volume:
-                self.log.warning("Missing volume %s", self.volume_id)
+                self.log.warning("Missing %s volume %s", volume_type, volume_id)
             else:
                 while volume.state != "available":
-                    self.log.debug("Volume state is %s", volume.state)
+                    self.log.debug("The %s volume state is %s", volume_type, volume.state)
                     await asyncio.sleep(1)
                     volume.reload()
 
@@ -170,7 +178,7 @@ class AwsSpawner(Spawner):
 
         self.instance_id = None
         self.ip_address = None
-        self.volume_id = None
+        self.volume_ids_by_type = {}
 
         self.log.debug("Returning from stop")
 
@@ -182,7 +190,7 @@ class AwsSpawner(Spawner):
         state.update({
             "instance_id": self.instance_id,
             "ip_address": self.ip_address,
-            "volume_id": self.volume_id,
+            "volume_ids_by_type": self.volume_ids_by_type,
         })
 
         self.log.debug("Returning state: %s", state)
@@ -196,7 +204,7 @@ class AwsSpawner(Spawner):
 
         self.instance_id = state.get("instance_id")
         self.ip_address = state.get("ip_address")
-        self.volume_id = state.get("volume_id")
+        self.volume_ids_by_type = state.get("volume_ids_by_type")
 
     def clear_state(self):
         self.log.debug("Clearing state")
@@ -205,7 +213,7 @@ class AwsSpawner(Spawner):
 
         self.instance_id = None
         self.ip_address = None
-        self.volume_id = None
+        self.volume_ids_by_type = {}
 
     def options_from_form(self, formdata):
         pass
