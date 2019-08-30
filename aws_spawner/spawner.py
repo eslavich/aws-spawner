@@ -166,7 +166,7 @@ class AwsSpawner(Spawner):
         for volume_type in ["env", "home"]:
             volume = None
             if self.volume_ids_by_type.get(volume_type):
-                volume_id = self.volume_ids_by_type[volume_id]
+                volume_id = self.volume_ids_by_type[volume_type]
                 try:
                     volume = self._get_volume(volume_id)
                 except Exception:
@@ -329,8 +329,10 @@ class AwsSpawner(Spawner):
 
         super().clear_state()
 
-        self.instance_id = None
-        self.volume_ids_by_type = {}
+        # TODO: Is this reasonable?  clear_state is called after the server is stopped, so we lose these variables
+        # in between launches if we clear them.
+#        self.instance_id = None
+#        self.volume_ids_by_type = {}
 
     def options_from_form(self, formdata):
         pass
