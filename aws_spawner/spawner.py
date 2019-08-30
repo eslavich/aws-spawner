@@ -164,6 +164,7 @@ class AwsSpawner(Spawner):
 
         volumes_by_type = {}
         for volume_type in ["env", "home"]:
+            volume = None
             if self.volume_ids_by_type.get(volume_type):
                 volume_id = self.volume_ids_by_type[volume_id]
                 try:
@@ -189,18 +190,18 @@ class AwsSpawner(Spawner):
                         # TODO: Handle this case.  Will have to snapshot and reload the volume in the correct AZ.
                         assert volume.availability_zone == instance.placement["AvailabilityZone"]
 
-                if not volume:
-                    snapshot_id = getattr(self, f"{volume_type}_volume_snapshot_id")
-                    create_volume_kwargs = {
-                        "AvailabilityZone": instance.placement["AvailabilityZone"],
-                        "SnapshotId": snapshot_id
-                    }
-                    self.log.debug("Creating %s volume with %s", volume_type, create_volume_kwargs)
-                    volume = self.ec2.create_volume(**create_volume_kwargs)
-                    self.log.debug("Created %s %s", volume_type, volume)
+            if not volume:
+                snapshot_id = getattr(self, f"{volume_type}_volume_snapshot_id")
+                create_volume_kwargs = {
+                    "AvailabilityZone": instance.placement["AvailabilityZone"],
+                    "SnapshotId": snapshot_id
+                }
+                self.log.debug("Creating %s volume with %s", volume_type, create_volume_kwargs)
+                volume = self.ec2.create_volume(**create_volume_kwargs)
+                self.log.debug("Created %s %s", volume_type, volume)
 
-                volumes_by_type[volume_type] = volume
-                self.volume_ids_by_type[volume_type] = volume.id
+            volumes_by_type[volume_type] = volume
+            self.volume_ids_by_type[volume_type] = volume.id
 
         await self._await_instance_state(instance, InstanceState.RUNNING)
 
@@ -226,7 +227,7 @@ class AwsSpawner(Spawner):
         if self.instance_id is not None:
             try:
                 instance = self._get_instance(self.instance_id)
-                instance_state == InstanceState.from_instance(instance)
+                instance_state = InstanceState.from_instance(instance)
                 if instance_state == InstanceState.RUNNING:
                     self.log.debug("Returning None")
                     return None
