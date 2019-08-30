@@ -234,7 +234,7 @@ class AwsSpawner(Spawner):
                     self.log.debug("Returning 0")
                     return 0
             except Exception:
-                log.debug("Failed to fetch instance-id %s", self.instance_id)
+                self.log.exception("Failed to fetch instance-id %s", self.instance_id)
                 self.log.debug("Returning 0")
                 return 0
 
