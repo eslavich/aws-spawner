@@ -283,7 +283,7 @@ class AwsSpawner(Spawner):
         self.log.debug("Returning from stop")
 
     async def _await_instance_state(self, instance, target_state):
-        await self._await_instance_state(self, instance, target_state, InstanceState.from_instance)
+        await self._await_entity_state(self, instance, target_state, InstanceState.from_instance)
 
     async def _await_volume_state(self, volume, target_state):
         await self._await_entity_state(self, volume, target_state, VolumeState.from_volume)
