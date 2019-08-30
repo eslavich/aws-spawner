@@ -120,15 +120,15 @@ class AwsSpawner(Spawner):
 
         self.log.debug("User data: %s", user_data)
         self.log.debug("User: %s", self.user)
-        self.log.debug("Instance ID: %s", self.instance_id
+        self.log.debug("Instance ID: %s", self.instance_id)
 
+        instance = None
         if self.instance_id:
             try:
                 self.log.debug("Attempting to load instance-id %s", self.instance_id)
                 instance = self._get_instance(self.instance_id)
             except Exception:
                 self.log.exception("Failed to load instance-id %s", self.instance_id)
-                instance = None
                 self.instance_id = None
 
         if instance:
@@ -202,12 +202,12 @@ class AwsSpawner(Spawner):
                 volumes_by_type[volume_type] = volume
                 self.volume_ids_by_type[volume_type] = volume.id
 
-        self._await_instance_state(instance, InstanceState.RUNNING)
+        await self._await_instance_state(instance, InstanceState.RUNNING)
 
         for volume_type, volume in volumes_by_type.items():
             self.log.debug("Checking up on %s %s progress", volume_type, volume)
             if VolumeState.from_volume(volume) != VolumeState.IN_USE:
-                self._await_volume_state(volume, VolumeState.AVAILABLE)
+                await self._await_volume_state(volume, VolumeState.AVAILABLE)
 
         self.log.debug("Attaching volumes")
         for volume_type, volume in volumes_by_type.items():
@@ -274,7 +274,7 @@ class AwsSpawner(Spawner):
                         volume_state = VolumeState.from_volume(volume)
                         if volume_state == VolumeState.IN_USE:
                             volume.detach_from_instance()
-                        self._await_volume_state(volume, VolumeState.AVAILABLE)
+                        await self._await_volume_state(volume, VolumeState.AVAILABLE)
                         volume.delete()
                     except Exception:
                         self.log.exception("Failed to fetch and delete volume-id %s", self.volume_id)
