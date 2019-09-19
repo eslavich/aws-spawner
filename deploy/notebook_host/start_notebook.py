@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 import pwd
 
-HOME_DEVICE = "/dev/nvme1n1"
-ENV_DEVICE = "/dev/nvme2n1"
+HOME_DEVICE = "/dev/sdf"
+ENV_DEVICE = "/dev/sdg"
 ENV_PATH = "/opt/conda"
 
 def get_user_data():
