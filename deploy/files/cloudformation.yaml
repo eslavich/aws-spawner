@@ -1,0 +1,268 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Launch a JupyterHub stack with separate proxy and hub instances,
+              and an RDS database."
+Parameters:
+  HubInstanceType:
+    Description: Hub Instance type
+    Type: String
+    Default: t3.medium
+
+  HubImageId:
+    Description: Hub AMI ID
+    Type: AWS::EC2::Image::Id
+
+  ProxyInstanceType:
+    Description: Proxy Instance type
+    Type: String
+    Default: t3.medium
+
+  ProxyId:
+    Description: Proxy AMI ID
+    Type: AWS::EC2::Image::Id
+
+  ProxyPublicPort:
+    Description: Port used by the proxy instance for user requests
+    Type: Number
+    Default: 8000
+
+  ProxyAPIPort:
+    Description: Port used by the proxy instance for API requests
+    Type: Number
+    Default: 8001
+
+  HubPort:
+    Description: Port used by the hub instance for requests
+    Type: Number
+    Default: 8081
+
+  NotebookPort:
+    Description: Port used by the notebook server instances for requests
+    Type: Number
+    Default: 8888
+
+  BastionSecurityGroupId:
+    Description: ID of the security group that enables access from the bastion node
+    Type: AWS::EC2::SecurityGroup::Id
+
+  VpcId:
+    Description: ID of the VPC that will contain the hub and proxy instances
+    Type: AWS::EC2::VPC::Id
+
+  SubnetIds:
+    Description: Array of VPC subnet IDs that will contain the hub and proxy instances
+    Type: List<AWS::EC2::Subnet::Id>
+
+  # TODO: Remove this parameter once the bastion setup is ready
+  KeyName:
+    Description: Name of the key pair to install on the hub and proxy instances
+    Type: String
+    Default: eslavich-key-pair
+
+
+# TODO: Autoscale the instances
+
+Resources:
+  ProxyPublicLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the JupyterHub proxy load balancer
+      GroupName: proxy-elb-security-group
+      SecurityGroupIngress:
+        - Description: "HTTP connections from the internet"
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: "HTTPS connections from the internet"
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - Description: "Public connections to the proxy security group"
+          IpProtocol: tcp
+          FromPort: !Ref ProxyPublicPort
+          ToPort: !Ref ProxyPublicPort
+          DestinationSecurityGroupId: Ref: ProxyInstanceSecurityGroup
+      # TODO: Tags?
+      VpcId: !Ref VpcId
+
+  ProxyPublicLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: true
+        # TODO: consider access logs, idle timeout
+      Name: proxy-load-balancer
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ProxyPublicLoadBalancerSecurityGroup
+      Subnets: !Ref SubnetIds
+      # TODO: Tags?
+
+  HubLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the JupyterHub hub load balancer
+      GroupName: hub-elb-security-group
+      SecurityGroupIngress:
+        - Description: "HTTPS connections from the proxy instance"
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref ProxyLoadBalancerSecurityGroup
+        - Destination: "API connections from the notebook servers"
+          IpProtocol: tcp
+
+      SecurityGroupEgress:
+        - Ingress
+      # TODO: Tags?
+      VpcId: !Ref: VpcId
+
+  HubLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: true
+        # TODO: consider access logs, idle timeout
+      Name: hub-load-balancer
+      Scheme: internal
+      SecurityGroups:
+        - String
+      SubnetMappings:
+        - SubnetMapping
+      Subnets: Ref: SubnetIds
+
+  NotebookInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for notebook instances
+      GroupName: notebook-security-group
+      SecurityGroupEgress:
+        - Egress
+      SecurityGroupIngress:
+        - Ingress
+      # TODO: Tags?
+      VpcId: Ref: VpcId
+
+  HubInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the hub instance
+      GroupName: hub-security-group
+      SecurityGroupEgress:
+        - Egress
+      SecurityGroupIngress:
+        - Ingress
+      # TODO: Tags?
+      VpcId: Ref: VpcId
+
+  ProxyInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+
+
+  HubInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      Monitoring: true
+      InstanceType: Ref: HubInstanceType
+      ImageId: Ref: HubImageId
+      SubnetId: Ref: SubnetId
+      SecurityGroupIds:
+        - Ref: BastionSecurityGroupId
+      KeyName: Ref: KeyName
+      # TODO: Tags?
+
+  ProxyInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      Monitoring: true
+      InstanceType: Ref: HubInstanceType
+      ImageId: Ref: HubImageId
+      SubnetId: Ref: SubnetId
+      SecurityGroupIds:
+        - Ref: BastionSecurityGroupId
+      KeyName: Ref: KeyName
+      # TODO: Tags?
+
+  # Database:
+  #   Type: AWS::RDS::DBInstance
+
+
+
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp:
+          Ref: SSHLocation
+
+  ProxyLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      AssociatePublicIpAddress: false
+      BlockDeviceMappings:
+        - BlockDeviceMapping
+      ImageId: !Ref Proxy
+      InstanceId: String
+      InstanceMonitoring: Boolean
+      InstanceType: String
+      KernelId: String
+      KeyName: String
+      LaunchConfigurationName: String
+      PlacementTenancy: String
+      RamDiskId: String
+      SecurityGroups:
+        - String
+      SpotPrice: String
+      UserData: String
+
+  ProxyAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: "hub-auto-scaling-group"
+      Cooldown: String
+      DesiredCapacity: String
+      HealthCheckGracePeriod: Integer
+      HealthCheckType: String
+      InstanceId: String
+      LaunchConfigurationName: String
+      LaunchTemplate:
+        LaunchTemplateSpecification
+      LifecycleHookSpecificationList:
+        - LifecycleHookSpecification
+      LoadBalancerNames:
+        - String
+      MaxSize: String
+      MetricsCollection:
+        - MetricsCollection
+      MinSize: String
+      MixedInstancesPolicy:
+        MixedInstancesPolicy
+      NotificationConfigurations:
+        - NotificationConfiguration
+      PlacementGroup: String
+      ServiceLinkedRoleARN: String
+      Tags:
+        - TagProperty
+      TargetGroupARNs:
+        - String
+      TerminationPolicies:
+        - String
+      VPCZoneIdentifier: !Ref SubnetIds
+
+Outputs:
+
+

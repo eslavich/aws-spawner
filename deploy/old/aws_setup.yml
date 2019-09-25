@@ -1,0 +1,18 @@
+# WIP: Setup for AWS instances
+---
+- hosts: aws
+  become: yes
+  become_user: root
+  tasks:
+  - name: upgrade all packages
+    yum: name=* state=latest
+  - name: install httpd
+    yum: name=httpd state=present
+  - name: install git
+    yum: name=git state=present
+  - name: create crds user
+    user:
+      name: crds
+      system: yes
+      shell: /bin/tcsh
+      create_home: yes

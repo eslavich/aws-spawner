@@ -1,0 +1,35 @@
+---
+- import_playbook: setup.yml
+- import_playbook: update_sources.yml
+- hosts: "{{ target }}"
+  become: true
+  become_user: crds
+  vars:
+    dynamic: false
+    build_stack_script_name: "{{ 'build_conda3' if dynamic else 'build_conda3_last' }}"
+  environment:
+    PATH: "{{ server_source_path }}/host:{{ ansible_env.PATH }}"
+  tasks:
+    - name: build conda stack
+      shell: "./{{ build_stack_script_name }} |& tee {{ ansible_log_path }}/{{ build_stack_script_name }}.log"
+      args:
+        chdir: "{{ server_source_path }}/stack_build"
+        executable: /bin/tcsh
+      async: 1800
+      poll: 5
+    - name: install client + server
+      shell: ./install |& tee {{ ansible_log_path }}/install.log
+      args:
+        chdir: "{{ server_source_path }}"
+        executable: /bin/tcsh
+      async: 1800
+      poll: 5
+    - name: run server unit tests
+      shell: crds_runtests |& tee {{ ansible_log_path }}/crds_runtests.log
+      args:
+        executable: /bin/tcsh
+      async: 1800
+      poll: 5
+    # The unit tests will stop and start the server, so at this point
+    # we should have a running server with the new stack and client/server
+    # code installed.

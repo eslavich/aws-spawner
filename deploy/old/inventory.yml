@@ -1,0 +1,25 @@
+stsci:
+  hosts:
+    pljwcrds.stsci.edu: # JWST OPS
+    tljwcrds.stsci.edu: # JWST TEST
+    dljwcrds.stsci.edu: # JWST DEV
+    iljwdmsbcrds.stsci.edu: # JWST B-string
+    iljwdmsccrds.stsci.edu: # JWST C-string
+    plhstcrds.stsci.edu: # HST OPS
+    tlhstcrds.stsci.edu: # HST TEST
+    dlhstcrds.stsci.edu: # HST DEV
+  vars:
+    ansible_become_method: ksu
+    server_source_path: /crds/data1/volatile_local/CRDS_server
+    client_source_path: /crds/data1/volatile_local/CRDS
+    ansible_log_path: /crds/data1/persistent_local/ansible_logs
+
+# WIP: AWS hosts
+# aws:
+#   hosts: []
+#   vars:
+#     ansible_become_method: sudo
+#     ansible_remote_user: ec2-user
+#     server_source_path: /opt/crds-server
+#     client_source_path: /opt/crds
+#     ansible_log_path: /var/log/ansible

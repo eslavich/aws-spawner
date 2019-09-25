@@ -1,0 +1,41 @@
+---
+- hosts: "{{ target }}"
+  become: true
+  become_user: crds
+  vars:
+    client_branch: "{{ branch }}"
+    server_branch: "{{ branch }}"
+    git_token: "{{ lookup('env', 'GIT_TOKEN') }}"
+    git_username: "{{ lookup('env', 'GIT_USERNAME') }}"
+    client_repo: https://github.com/spacetelescope/crds.git
+    client_remote: upstream
+    server_repo: https://github.com/spacetelescope/crds-server.git
+    server_remote: upstream
+  environment:
+    GIT_TOKEN: "{{ git_token }}"
+    GIT_USERNAME: "{{ git_username }}"
+  tasks:
+  - name: create temporary file for git_askpass.py
+    tempfile:
+    register: git_askpass_temp
+  - name: copy git_askpass.py
+    copy:
+      src: git_askpass.py
+      dest: "{{ git_askpass_temp.path }}"
+      mode: "755"
+  - name: clone crds repository
+    environment:
+      GIT_ASKPASS: "{{ git_askpass_temp.path }}"
+    git:
+      repo: "{{ client_repo }}"
+      remote: "{{ client_remote }}"
+      dest: "{{ client_source_path }}"
+      version: "{{ client_branch }}"
+  - name: clone crds-server repository
+    environment:
+      GIT_ASKPASS: "{{ git_askpass_temp.path }}"
+    git:
+      repo: "{{ server_repo }}"
+      remote: "{{ server_remote }}"
+      dest: "{{ server_source_path }}"
+      version: "{{ server_branch }}"

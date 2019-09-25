@@ -1,0 +1,13 @@
+---
+- hosts: "{{ target }}"
+  become: true
+  become_user: crds
+  tasks:
+  - name: create directories
+    file:
+      path: "{{ item }}"
+      state: directory
+    loop:
+      - "{{ ansible_log_path }}"
+      - "{{ server_source_path }}"
+      - "{{ client_source_path }}"
