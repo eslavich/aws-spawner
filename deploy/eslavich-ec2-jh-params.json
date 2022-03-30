@@ -1,0 +1,30 @@
+[
+    {
+        "ParameterKey": "HubImageId",
+        "ParameterValue": "ami-0b69ea66ff7391e80"
+    },
+    {
+        "ParameterKey": "ProxyImageId",
+        "ParameterValue": "ami-0b69ea66ff7391e80"
+    },
+    {
+        "ParameterKey": "ProxyPublicIngressCIDR",
+        "ParameterValue": "130.167.128.0/17"
+    },
+    {
+        "ParameterKey": "BastionSecurityGroupId",
+        "ParameterValue": "sg-088342a50a1572750"
+    },
+    {
+        "ParameterKey": "VpcId",
+        "ParameterValue": "vpc-085a6dc51cb3de412"
+    },
+    {
+        "ParameterKey": "SubnetIds",
+        "ParameterValue": "subnet-003f69090c80bf76f,subnet-0ac236bc53e72e4d7"
+    },
+    {
+        "ParameterKey": "KeyName",
+        "ParameterValue": "eslavich-test-internal-key-pair"
+    }
+]

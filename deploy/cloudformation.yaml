@@ -77,8 +77,8 @@ Resources:
   ProxyPublicLoadBalancerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      GroupName: !Sub "${AWS::StackName}-proxy-public-elb"
       GroupDescription: Security group for the JupyterHub proxy public load balancer
-      GroupName: proxy-public-elb-security-group
       SecurityGroupIngress:
         - Description: "HTTP connections from the internet"
           IpProtocol: tcp
@@ -97,13 +97,10 @@ Resources:
   ProxyPublicLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
+      Name: !Sub "${AWS::StackName}-proxy-public"
       Type: application
       IpAddressType: ipv4
-      LoadBalancerAttributes:
-        - Key: deletion_protection.enabled
-          Value: true
-        # TODO: consider access logs, idle timeout
-      Name: proxy-public-load-balancer
+      # TODO: Consider LoadBalancerAttributes:
       Scheme: internet-facing
       SecurityGroups:
         - !Ref ProxyPublicLoadBalancerSecurityGroup
@@ -113,7 +110,7 @@ Resources:
   ProxyPublicTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: proxy-public-target-group
+      Name: !Sub "${AWS::StackName}-proxy-public"
       # TODO: Consider adding an explicit health check path to the proxy
       # TODO: Change to HTTPS once we're encrypting internal traffic
       HealthCheckProtocol: HTTP
@@ -167,8 +164,8 @@ Resources:
   ProxyAPILoadBalancerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      GroupName: !Sub "${AWS::StackName}-proxy-api-elb"
       GroupDescription: Security group for the JupyterHub proxy API load balancer
-      GroupName: proxy-api-elb-security-group
       # TODO: Consider SecurityGroupEgress
       # TODO: Consider Tags
       VpcId: !Ref VpcId
@@ -191,11 +188,8 @@ Resources:
     Properties:
       Type: application
       IpAddressType: ipv4
-      LoadBalancerAttributes:
-        - Key: deletion_protection.enabled
-          Value: true
-        # TODO: consider access logs, idle timeout
-      Name: proxy-api-load-balancer
+      # TODO: Consider LoadBalancerAttributes:
+      Name: !Sub "${AWS::StackName}-proxy-api"
       Scheme: internal
       SecurityGroups:
         - !Ref ProxyAPILoadBalancerSecurityGroup
@@ -205,7 +199,7 @@ Resources:
   ProxyAPITargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: proxy-api-target-group
+      Name: !Sub "${AWS::StackName}-proxy-api"
       HealthCheckPath: /api/
       # TODO: Change to HTTPS once we're encrypting internal traffic
       HealthCheckProtocol: HTTP
@@ -231,6 +225,7 @@ Resources:
   ProxyInstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      GroupName: !Sub "${AWS::StackName}-proxy-instance"
       GroupDescription: "Security group for JupyterHub proxy instances"
       SecurityGroupIngress:
         - Description: "SSH access from the bastion node"
@@ -250,11 +245,12 @@ Resources:
           SourceSecurityGroupId: !Ref ProxyAPILoadBalancerSecurityGroup
       # TODO: Consider SecurityGroupEgress
       # TODO: Consider Tags
+      VpcId: !Ref VpcId
 
   ProxyLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: proxy-launch-template
+      LaunchTemplateName: !Sub "${AWS::StackName}-proxy"
       LaunchTemplateData:
         ImageId: !Ref ProxyImageId
         InstanceInitiatedShutdownBehavior: terminate
@@ -269,7 +265,7 @@ Resources:
   ProxyAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: proxy-auto-scaling-group
+      AutoScalingGroupName: !Sub "${AWS::StackName}-proxy"
       MinSize: 1
       MaxSize: 1
       # TODO: Add a real proxy health check
@@ -291,8 +287,8 @@ Resources:
   HubLoadBalancerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      GroupName: !Sub "${AWS::StackName}-hub-elb"
       GroupDescription: Security group for the JupyterHub hub load balancer
-      GroupName: hub-elb-security-group
       SecurityGroupIngress:
         - Description: "Connections from the proxy instances"
           IpProtocol: tcp
@@ -300,7 +296,7 @@ Resources:
           FromPort: 80
           ToPort: 80
           SourceSecurityGroupId: !Ref ProxyInstanceSecurityGroup
-        - Destination: "Connections from the notebook servers"
+        - Description: "Connections from the notebook servers"
           IpProtocol: tcp
           # TODO: Change this to 443 once we're encrypting internal traffic
           FromPort: 80
@@ -314,12 +310,9 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Type: application
+      Name: !Sub "${AWS::StackName}-hub"
       IpAddressType: ipv4
-      LoadBalancerAttributes:
-        - Key: deletion_protection.enabled
-          Value: true
-        # TODO: consider access logs, idle timeout
-      Name: hub-load-balancer
+      # TODO: Consider LoadBalancerAttributes:
       Scheme: internal
       SecurityGroups:
         - !Ref HubLoadBalancerSecurityGroup
@@ -328,7 +321,7 @@ Resources:
   HubTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: hub-target-group
+      Name: !Sub "${AWS::StackName}-hub"
       # TODO: Add a real health check endpoint
       # TODO: Change to HTTPS once we're encrypting internal traffic
       HealthCheckProtocol: HTTP
@@ -341,8 +334,8 @@ Resources:
   HubInstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      GroupName: !Sub "${AWS::StackName}-hub"
       GroupDescription: Security group for JupyterHub hub instances
-      GroupName: hub-security-group
       SecurityGroupIngress:
         - Description: "SSH access from the bastion node"
           IpProtocol: tcp
@@ -361,7 +354,7 @@ Resources:
   HubLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: hub-launch-template
+      LaunchTemplateName: !Sub "${AWS::StackName}-hub"
       LaunchTemplateData:
         ImageId: !Ref HubImageId
         InstanceInitiatedShutdownBehavior: terminate
@@ -380,7 +373,7 @@ Resources:
   HubAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: hub-auto-scaling-group
+      AutoScalingGroupName: !Sub "${AWS::StackName}-hub"
       MinSize: 1
       MaxSize: 1
       # TODO: Add a real hub health check
@@ -400,8 +393,8 @@ Resources:
   NotebookInstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      GroupName: !Sub "${AWS::StackName}-notebook"
       GroupDescription: Security group for notebook instances
-      GroupName: notebook-security-group
       SecurityGroupIngress:
         - Description: "SSH access from the bastion node"
           IpProtocol: tcp
@@ -420,7 +413,7 @@ Resources:
   NotebookLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: notebook-launch-template
+      LaunchTemplateName: !Sub "${AWS::StackName}-notebook"
       LaunchTemplateData:
         InstanceInitiatedShutdownBehavior: terminate
         KeyName: !Ref KeyName
